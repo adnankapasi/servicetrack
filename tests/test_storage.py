@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from servicetrack.storage import ServiceStore
+from servicetrack.storage import SQLITE_MAX_INTEGER, ServiceStore
 
 
 class StorageTests(unittest.TestCase):
@@ -323,6 +323,71 @@ class StorageTests(unittest.TestCase):
 
         with self.assertRaises(sqlite3.ProgrammingError):
             store.list_vehicles()
+
+    def test_accepts_maximum_sqlite_mileage(self):
+        self.add_service(
+            date(2020, 1, 1),
+            SQLITE_MAX_INTEGER,
+        )
+
+        history = self.store.service_history(self.vehicle_id)
+
+        self.assertEqual(
+            history[0]["odometer_km"],
+            SQLITE_MAX_INTEGER,
+        )
+
+    def test_rejects_mileage_above_sqlite_limit(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "odometer_km must be at most",
+        ):
+            self.add_service(
+                date(2020, 1, 1),
+                SQLITE_MAX_INTEGER + 1,
+            )
+
+        self.assertEqual(
+            self.store.service_history(self.vehicle_id),
+            [],
+        )
+        self.assertFalse(self.store.connection.in_transaction)
+
+    def test_rejects_vehicle_id_above_sqlite_limit(self):
+        oversized_id = SQLITE_MAX_INTEGER + 1
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "vehicle_id must be at most",
+        ):
+            self.store.add_service(
+                oversized_id,
+                date(2020, 1, 1),
+                1000,
+            )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "vehicle_id must be at most",
+        ):
+            self.store.service_history(oversized_id)
+
+    def test_maximum_vehicle_id_reaches_existence_validation(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "Vehicle does not exist",
+        ):
+            self.store.service_history(SQLITE_MAX_INTEGER)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Vehicle does not exist",
+        ):
+            self.store.add_service(
+                SQLITE_MAX_INTEGER,
+                date(2020, 1, 1),
+                1000,
+            )
 
 
 if __name__ == "__main__":

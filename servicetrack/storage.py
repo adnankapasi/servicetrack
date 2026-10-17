@@ -3,6 +3,21 @@ from datetime import date
 
 from servicetrack.scheduling import require_integer
 
+SQLITE_MAX_INTEGER = (2**63) - 1
+
+
+def require_sqlite_integer(
+    name: str,
+    value: int,
+    minimum: int = 0,
+) -> None:
+    require_integer(name, value, minimum)
+
+    if value > SQLITE_MAX_INTEGER:
+        raise ValueError(
+            f"{name} must be at most {SQLITE_MAX_INTEGER}"
+        )
+
 
 class ServiceStore:
     """Store vehicles and service records in a local SQLite database."""
@@ -49,7 +64,7 @@ class ServiceStore:
         self.close()
 
     def _require_vehicle(self, vehicle_id: int) -> None:
-        require_integer("vehicle_id", vehicle_id, 1)
+        require_sqlite_integer("vehicle_id", vehicle_id, 1)
 
         vehicle = self.connection.execute(
             "SELECT id FROM vehicles WHERE id = ?",
@@ -86,8 +101,8 @@ class ServiceStore:
         odometer_km: int,
         notes: str = "",
     ) -> int:
-        require_integer("vehicle_id", vehicle_id, 1)
-        require_integer("odometer_km", odometer_km)
+        require_sqlite_integer("vehicle_id", vehicle_id, 1)
+        require_sqlite_integer("odometer_km", odometer_km)
 
         if type(service_date) is not date:
             raise ValueError("service_date must be a date")
