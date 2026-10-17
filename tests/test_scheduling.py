@@ -124,6 +124,26 @@ class SchedulingTests(unittest.TestCase):
         self.assertEqual(status.remaining_km, 3000)
         self.assertFalse(status.is_due)
 
+    def test_accepts_current_mileage_equal_to_last_service(self):
+        status = self.calculate(
+            current_km=10000,
+            last_service_km=10000,
+        )
+
+        self.assertEqual(status.next_service_km, 15000)
+        self.assertEqual(status.remaining_km, 5000)
+        self.assertFalse(status.is_due)
+
+    def test_accepts_zero_mileage(self):
+        status = self.calculate(
+            current_km=0,
+            last_service_km=0,
+        )
+
+        self.assertEqual(status.next_service_km, 5000)
+        self.assertEqual(status.remaining_km, 5000)
+        self.assertFalse(status.is_due)
+
 
 if __name__ == "__main__":
     unittest.main()
