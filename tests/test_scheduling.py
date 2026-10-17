@@ -36,6 +36,13 @@ class SchedulingTests(unittest.TestCase):
         status = self.calculate(current_km=15500)
         self.assertEqual(status.remaining_km, -500)
 
+    def test_overdue_date_remains_negative(self):
+        status = self.calculate(today=date(2026, 7, 5))
+
+        self.assertEqual(status.remaining_days, -5)
+        self.assertTrue(status.is_due)
+        self.assertEqual(status.remaining_km, 3000)
+
     def test_rejects_invalid_values(self):
         invalid_cases = [
             {"current_km": -1},
