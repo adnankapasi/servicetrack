@@ -361,6 +361,67 @@ class CliTests(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout), [])
         self.assertEqual(result.stderr, "")
 
+    def test_same_date_services_require_equal_mileage(self):
+        vehicle_id = self.create_vehicle()
+        service_date = "2020-01-01"
+
+        first = self.run_command(
+            "add-service",
+            vehicle_id,
+            "--date", service_date,
+            "--km", "10000",
+            "--notes", "Oil changed",
+        )
+
+        status_arguments = (
+            "status",
+            vehicle_id,
+            "--current-km", "11000",
+            "--interval-km", "5000",
+            "--interval-days", "180",
+        )
+        original_status = self.run_command(*status_arguments)
+
+        second = self.run_command(
+            "add-service",
+            vehicle_id,
+            "--date", service_date,
+            "--km", "10000",
+            "--notes", "Tyres replaced",
+        )
+
+        for conflicting_mileage in ("9999", "10001"):
+            with self.subTest(mileage=conflicting_mileage):
+                self.assert_command_error(
+                    [
+                        "add-service",
+                        vehicle_id,
+                        "--date", service_date,
+                        "--km", conflicting_mileage,
+                    ],
+                    "Mileage conflicts",
+                )
+
+        history = self.run_command("history", vehicle_id)
+
+        self.assertEqual(
+            [record["id"] for record in history],
+            [second["service_id"], first["service_id"]],
+        )
+        self.assertTrue(
+            all(record["odometer_km"] == 10000 for record in history)
+        )
+
+        final_status = self.run_command(*status_arguments)
+
+        self.assertEqual(final_status, original_status)
+        self.assertEqual(final_status["next_service_km"], 15000)
+        self.assertEqual(final_status["remaining_km"], 4000)
+        self.assertEqual(
+            final_status["next_service_date"],
+            "2020-06-29",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
